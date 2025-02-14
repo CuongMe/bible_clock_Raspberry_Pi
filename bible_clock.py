@@ -9,7 +9,6 @@ BOLD_FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 REGULAR_FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 
 # Setup for the Inky display - update this if your Inky Impression 7.3 uses different settings.
-# Here we assume a monochrome (black/white) display for simplicity. Adjust as needed.
 inky_display = InkyPHAT("black")  # Replace with your specific driver if necessary
 
 # Create a blank image canvas matching the display dimensions.
@@ -29,8 +28,6 @@ with open("bible_verse.json") as f:
 # Get the current time and create a key formatted as "HH:MM"
 now = datetime.now()
 time_key = now.strftime("%H:%M")
-# For testing you can override, e.g.:
-# time_key = "01:01"
 
 # Retrieve the verse associated with the current time.
 verse_info = verses.get(time_key, "No verse set for this time.")
@@ -50,11 +47,13 @@ draw.text((10, 10), "connect bluetooth to sync", font=header_font, fill=inky_dis
 
 # Draw top right: current time
 time_str = now.strftime("%H:%M")
-time_size = draw.textsize(time_str, font=time_font)
+time_bbox = draw.textbbox((0, 0), time_str, font=time_font)
+time_size = (time_bbox[2] - time_bbox[0], time_bbox[3] - time_bbox[1])
 draw.text((inky_display.WIDTH - time_size[0] - 10, 10), time_str, font=time_font, fill=inky_display.BLACK)
 
 # Center area: Draw Bible verse reference (bold) and then the verse text.
-ref_size = draw.textsize(reference, font=bold_font)
+ref_bbox = draw.textbbox((0, 0), reference, font=bold_font)
+ref_size = (ref_bbox[2] - ref_bbox[0], ref_bbox[3] - ref_bbox[1])
 ref_x = (inky_display.WIDTH - ref_size[0]) // 2
 ref_y = (inky_display.HEIGHT // 2) - ref_size[1] - 10
 draw.text((ref_x, ref_y), reference, font=bold_font, fill=inky_display.BLACK)
@@ -66,7 +65,7 @@ def wrap_text(text, font, max_width):
     current_line = ""
     for word in words:
         test_line = f"{current_line} {word}".strip()
-        if draw.textsize(test_line, font=font)[0] <= max_width:
+        if draw.textbbox((0, 0), test_line, font=font)[2] <= max_width:
             current_line = test_line
         else:
             lines.append(current_line)
@@ -77,18 +76,20 @@ def wrap_text(text, font, max_width):
 
 verse_max_width = inky_display.WIDTH - 40
 lines = wrap_text(verse_text, verse_font, verse_max_width)
-line_height = verse_font.getsize("Ay")[1]
+line_height = verse_font.getbbox("Ay")[3]  # Get line height
 verse_start_y = ref_y + ref_size[1] + 10
 
 for i, line in enumerate(lines):
-    line_width = draw.textsize(line, font=verse_font)[0]
+    line_bbox = draw.textbbox((0, 0), line, font=verse_font)
+    line_width = line_bbox[2] - line_bbox[0]
     line_x = (inky_display.WIDTH - line_width) // 2
     draw.text((line_x, verse_start_y + i * (line_height + 4)), line, font=verse_font, fill=inky_display.BLACK)
 
 # Bottom: Draw three cross symbols (using the unicode character "✝")
 cross_text = "✝   ✝   ✝"
 cross_font = ImageFont.truetype(BOLD_FONT_PATH, 36)
-cross_size = draw.textsize(cross_text, font=cross_font)
+cross_bbox = draw.textbbox((0, 0), cross_text, font=cross_font)
+cross_size = (cross_bbox[2] - cross_bbox[0], cross_bbox[3] - cross_bbox[1])
 cross_x = (inky_display.WIDTH - cross_size[0]) // 2
 cross_y = inky_display.HEIGHT - cross_size[1] - 10
 draw.text((cross_x, cross_y), cross_text, font=cross_font, fill=inky_display.BLACK)
