@@ -1,147 +1,98 @@
+#!/usr/bin/env python3
 import json
-import time
-import platform
 from datetime import datetime
+from inky import InkyPHAT  # or use the proper import for Inky Impression 7.3 if available
 from PIL import Image, ImageDraw, ImageFont
 
-# Detect if running on Windows
-IS_WINDOWS = platform.system() == "Windows"
+# Configuration: update these paths with your actual font file paths
+BOLD_FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+REGULAR_FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 
-if IS_WINDOWS:
-    print("Running in Windows preview mode. Using dummy display.")
+# Setup for the Inky display - update this if your Inky Impression 7.3 uses different settings.
+# Here we assume a monochrome (black/white) display for simplicity. Adjust as needed.
+inky_display = InkyPHAT("black")  # Replace with your specific driver if necessary
 
+# Create a blank image canvas matching the display dimensions.
+img = Image.new("P", (inky_display.WIDTH, inky_display.HEIGHT))
+draw = ImageDraw.Draw(img)
 
-    class DummyInky:
-        WIDTH = 800  # Set same resolution as Inky Impression
-        HEIGHT = 480
+# Load fonts (adjust sizes as desired)
+time_font = ImageFont.truetype(REGULAR_FONT_PATH, 24)
+header_font = ImageFont.truetype(REGULAR_FONT_PATH, 18)
+bold_font = ImageFont.truetype(BOLD_FONT_PATH, 48)
+verse_font = ImageFont.truetype(REGULAR_FONT_PATH, 20)
 
-        def __init__(self, color):
-            self.color = color
-            print(f"Dummy display initialized with color: {color}")
-
-        def set_image(self, img):
-            self.img = img
-
-        def show(self):
-            print("Previewing image using Pillow's default viewer.")
-            self.img.show()
-
-
-    inky_display = DummyInky("black")
-else:
-    from inky import InkyImpression
-
-    inky_display = InkyImpression("red")  # Change to "black" or "yellow" if needed
-    inky_display.set_border(inky_display.WHITE)
-
-# Load Bible verses from JSON
-with open("verses.json", "r", encoding="utf-8") as f:
+# Load Bible verses from JSON file.
+with open("bible_verse.json") as f:
     verses = json.load(f)
 
-# Load fonts (Book Name Normal, Chapter & Verse Number Bold)
-try:
-    time_font = ImageFont.truetype("DejaVuSans-Bold.ttf", 120)  # Large, Bold Time Display
-    book_font = ImageFont.truetype("DejaVuSerif.ttf", 50)  # Book Name (Larger & Formal Serif)
-    bold_font = ImageFont.truetype("DejaVuSans-Bold.ttf", 50)  # Chapter & Verse Number (Bold & Bigger)
-    verse_font = ImageFont.truetype("Times New Roman.ttf", 40)  # Verse Text (Larger & Classic)
-except IOError:
-    time_font = ImageFont.load_default()
-    book_font = ImageFont.load_default()
-    bold_font = ImageFont.load_default()
-    verse_font = ImageFont.load_default()
+# Get the current time and create a key formatted as "HH:MM"
+now = datetime.now()
+time_key = now.strftime("%H:%M")
+# For testing you can override, e.g.:
+# time_key = "01:01"
 
+# Retrieve the verse associated with the current time.
+verse_info = verses.get(time_key, "No verse set for this time.")
 
-def get_current_verse():
-    """Fetch the current Bible verse based on the current time."""
-    current_time = datetime.now().strftime("%H:%M")
-    return current_time, verses.get(current_time, None)
+# Assume the verse info follows the format "Book Chapter:Verse – Verse text"
+if "–" in verse_info:
+    reference, verse_text = map(str.strip, verse_info.split("–", 1))
+else:
+    reference = verse_info
+    verse_text = ""
 
+# Clear the canvas with white.
+draw.rectangle((0, 0, inky_display.WIDTH, inky_display.HEIGHT), fill=inky_display.WHITE)
 
-def update_display():
-    """Design the layout and update the display (or preview in Windows)."""
+# Draw top left text: "connect bluetooth to sync"
+draw.text((10, 10), "connect bluetooth to sync", font=header_font, fill=inky_display.BLACK)
 
-    # Fetch current time and verse
-    current_time, verse_text = get_current_verse()
+# Draw top right: current time
+time_str = now.strftime("%H:%M")
+time_size = draw.textsize(time_str, font=time_font)
+draw.text((inky_display.WIDTH - time_size[0] - 10, 10), time_str, font=time_font, fill=inky_display.BLACK)
 
-    # Create a blank image (simulate E-Ink resolution)
-    img = Image.new("P", (inky_display.WIDTH, inky_display.HEIGHT), "white")
-    draw = ImageDraw.Draw(img)
+# Center area: Draw Bible verse reference (bold) and then the verse text.
+ref_size = draw.textsize(reference, font=bold_font)
+ref_x = (inky_display.WIDTH - ref_size[0]) // 2
+ref_y = (inky_display.HEIGHT // 2) - ref_size[1] - 10
+draw.text((ref_x, ref_y), reference, font=bold_font, fill=inky_display.BLACK)
 
-    # Check if it's a whole hour (e.g., 1:00, 2:00)
-    minutes = current_time.split(":")[1]
-    if minutes == "00":
-        # Whole Hour Case: Show only the time in large centered text
-        text_w, text_h = draw.textbbox((0, 0), current_time, font=time_font)[2:]
-        text_x = (inky_display.WIDTH - text_w) // 2
-        text_y = (inky_display.HEIGHT - text_h) // 2
-        draw.text((text_x, text_y), current_time, font=time_font, fill="black")
-
-    else:
-        # Regular Case: Show Bible verse
-        if verse_text:
-            # Extract book name and verse
-            if " " in verse_text:
-                book, rest = verse_text.split(" ", 1)  # Split book from the rest
-                chapter_verse, verse_main = rest.split(" – ", 1) if " – " in rest else ("", rest)
-            else:
-                book, chapter_verse, verse_main = verse_text, "", ""
-
-            # Center the Book Name (Normal Font)
-            book_w, book_h = draw.textbbox((0, 0), book, font=book_font)[2:]
-            book_x = (inky_display.WIDTH - book_w) // 2
-            book_y = inky_display.HEIGHT // 3 - book_h // 2
-            draw.text((book_x, book_y), book, font=book_font, fill="black")
-
-            # Center the Chapter & Verse Number (Bold Font)
-            if chapter_verse:
-                cv_w, cv_h = draw.textbbox((0, 0), chapter_verse, font=bold_font)[2:]
-                cv_x = (inky_display.WIDTH - cv_w) // 2
-                cv_y = book_y + book_h + 10
-                draw.text((cv_x, cv_y), chapter_verse, font=bold_font, fill="black")
-
-            # Word-wrap the verse text
-            max_width = inky_display.WIDTH - 40
-            wrapped_lines = wrap_text(verse_main, verse_font, max_width)
-            line_height = verse_font.getbbox("A")[3] - verse_font.getbbox("A")[1] + 10
-            start_y = cv_y + cv_h + 20 if chapter_verse else book_y + book_h + 20
-
-            for i, line in enumerate(wrapped_lines):
-                text_width = draw.textbbox((0, 0), line, font=verse_font)[2]
-                text_x = (inky_display.WIDTH - text_width) // 2
-                draw.text((text_x, start_y + i * line_height), line, font=verse_font, fill="black")
-
-    # Show the preview image on Windows or update Inky Impression
-    inky_display.set_image(img)
-    inky_display.show()
-
-
+# A simple text wrapping function for the verse text.
 def wrap_text(text, font, max_width):
-    """Wrap text to fit within the specified width."""
     words = text.split()
     lines = []
     current_line = ""
-
     for word in words:
-        test_line = current_line + (" " if current_line else "") + word
-        bbox = font.getbbox(test_line)
-        width = bbox[2] - bbox[0]
-
-        if width <= max_width:
+        test_line = f"{current_line} {word}".strip()
+        if draw.textsize(test_line, font=font)[0] <= max_width:
             current_line = test_line
         else:
             lines.append(current_line)
             current_line = word
-
     if current_line:
         lines.append(current_line)
-
     return lines
 
+verse_max_width = inky_display.WIDTH - 40
+lines = wrap_text(verse_text, verse_font, verse_max_width)
+line_height = verse_font.getsize("Ay")[1]
+verse_start_y = ref_y + ref_size[1] + 10
 
-# Run preview once on Windows, loop on Raspberry Pi
-if IS_WINDOWS:
-    update_display()
-else:
-    while True:
-        update_display()
-        time.sleep(60)
+for i, line in enumerate(lines):
+    line_width = draw.textsize(line, font=verse_font)[0]
+    line_x = (inky_display.WIDTH - line_width) // 2
+    draw.text((line_x, verse_start_y + i * (line_height + 4)), line, font=verse_font, fill=inky_display.BLACK)
+
+# Bottom: Draw three cross symbols (using the unicode character "✝")
+cross_text = "✝   ✝   ✝"
+cross_font = ImageFont.truetype(BOLD_FONT_PATH, 36)
+cross_size = draw.textsize(cross_text, font=cross_font)
+cross_x = (inky_display.WIDTH - cross_size[0]) // 2
+cross_y = inky_display.HEIGHT - cross_size[1] - 10
+draw.text((cross_x, cross_y), cross_text, font=cross_font, fill=inky_display.BLACK)
+
+# Send the composed image to the display.
+inky_display.set_image(img)
+inky_display.show()
