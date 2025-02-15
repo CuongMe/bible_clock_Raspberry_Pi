@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
 # bible_clock.py
 import json
+import os
 import time
 from datetime import datetime
 from inky.auto import auto
 from PIL import Image, ImageDraw, ImageFont
 
-# Configuration: update these paths as needed.
-BOLD_FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-REGULAR_FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+# Set up the font directory (relative to the script)
+FONT_DIR = os.path.join(os.path.dirname(__file__), "fonts")
+
+# Load EB Garamond fonts
+REGULAR_FONT_PATH = os.path.join(FONT_DIR, "EBGaramond-Regular.ttf")
+BOLD_FONT_PATH = os.path.join(FONT_DIR, "EBGaramond-Bold.ttf")
 
 # Setup for the Inky display
 inky_display = auto()  # Replace with your specific driver if necessary
@@ -16,8 +20,8 @@ inky_display = auto()  # Replace with your specific driver if necessary
 # Load fonts
 time_font   = ImageFont.truetype(REGULAR_FONT_PATH, 24)
 header_font = ImageFont.truetype(REGULAR_FONT_PATH, 18)
-bold_font   = ImageFont.truetype(BOLD_FONT_PATH, 48)
-verse_font  = ImageFont.truetype(REGULAR_FONT_PATH, 20)
+verse_font  = ImageFont.truetype(REGULAR_FONT_PATH, 24)  # Bible verses
+bold_font   = ImageFont.truetype(BOLD_FONT_PATH, 36)  # Chapter & verse reference (will be red)
 cross_font  = ImageFont.truetype(BOLD_FONT_PATH, 36)
 
 def wrap_text(text, font, max_width):
@@ -66,7 +70,7 @@ def bible_clock_loop():
             reference = verse_info
             verse_text = ""
 
-        # Clear the canvas
+        # Clear the canvas with a white background
         draw.rectangle((0, 0, inky_display.WIDTH, inky_display.HEIGHT), fill=inky_display.WHITE)
 
         # Top left: Instruction text
@@ -78,14 +82,18 @@ def bible_clock_loop():
         time_size = (time_bbox[2] - time_bbox[0], time_bbox[3] - time_bbox[1])
         draw.text((inky_display.WIDTH - time_size[0] - 10, 10), time_str, font=time_font, fill=inky_display.BLACK)
 
-        # Center: Bible verse reference (bold)
+        # Draw a horizontal line below the top section (y = 40)
+        draw.line([(0, 40), (inky_display.WIDTH, 40)], fill=inky_display.BLACK, width=2)
+
+        # Center: Bible verse reference (drawn in RED)
         ref_bbox = draw.textbbox((0, 0), reference, font=bold_font)
         ref_size = (ref_bbox[2] - ref_bbox[0], ref_bbox[3] - ref_bbox[1])
         ref_x = (inky_display.WIDTH - ref_size[0]) // 2
-        ref_y = (inky_display.HEIGHT // 2) - ref_size[1] - 10
-        draw.text((ref_x, ref_y), reference, font=bold_font, fill=inky_display.BLACK)
+        # Set the y-coordinate below the horizontal line
+        ref_y = 60
+        draw.text((ref_x, ref_y), reference, font=bold_font, fill=inky_display.RED)
 
-        # Bible verse text (wrapped)
+        # Bible verse text (wrapped) in BLACK
         verse_max_width = inky_display.WIDTH - 40
         lines = wrap_text(verse_text, verse_font, verse_max_width)
         line_height = verse_font.getbbox("Ay")[3]
@@ -104,7 +112,7 @@ def bible_clock_loop():
         cross_y = inky_display.HEIGHT - cross_size[1] - 10
         draw.text((cross_x, cross_y), cross_text, font=cross_font, fill=inky_display.BLACK)
 
-        # Use partial updates for speed; do a full update periodically to avoid ghosting.
+        # Use partial updates for speed; perform a full update periodically to avoid ghosting.
         if cycle % full_refresh_interval == 0:
             inky_display.set_image(img)
             inky_display.show()
