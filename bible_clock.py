@@ -7,24 +7,31 @@ from datetime import datetime
 from inky.auto import auto
 from PIL import Image, ImageDraw, ImageFont
 
-# Set up the font directory
-FONT_DIR = os.path.join(os.path.dirname(__file__), "fonts")
+# -----------------------------
+# Setup Font Paths and Display
+# -----------------------------
 
-# Load EB Garamond fonts
+# Directory for your custom fonts (EB Garamond)
+FONT_DIR = os.path.join(os.path.dirname(__file__), "fonts")
 REGULAR_FONT_PATH = os.path.join(FONT_DIR, "EBGaramond-Regular.ttf")
 BOLD_FONT_PATH = os.path.join(FONT_DIR, "EBGaramond-Bold.ttf")
 
-# Setup for the Inky display
+# For icons, we use DejaVu Sans Bold (system-wide installation)
+ICON_FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+
+# Setup Inky display (Inky Impression 7.3)
 inky_display = auto()
 
 # Load fonts
-phrase_font = ImageFont.truetype(REGULAR_FONT_PATH, 20)  # Christian phrase
-icon_font = ImageFont.truetype(BOLD_FONT_PATH, 32)       # Christian icon
-verse_font = ImageFont.truetype(REGULAR_FONT_PATH, 24)   # Bible verses
-bold_font = ImageFont.truetype(BOLD_FONT_PATH, 36)       # Chapter & verse reference
-cross_font = ImageFont.truetype(BOLD_FONT_PATH, 36)
+phrase_font = ImageFont.truetype(REGULAR_FONT_PATH, 20)    # For rotating Christian phrases (top left)
+icon_font   = ImageFont.truetype(ICON_FONT_PATH, 28)         # For rotating Christian icons (top right)
+verse_font  = ImageFont.truetype(REGULAR_FONT_PATH, 24)      # For Bible verses text
+bold_font   = ImageFont.truetype(BOLD_FONT_PATH, 36)         # For Bible verse reference (displayed in red)
+cross_font  = ImageFont.truetype(ICON_FONT_PATH, 36)         # For bottom crosses (using icon font)
 
-# Expanded Christian phrases (Top Left)
+# -----------------------------
+# Define Rotating Phrases & Icons
+# -----------------------------
 CHRISTIAN_PHRASES = [
     "Faith Over Fear",
     "Jesus is King",
@@ -58,10 +65,14 @@ CHRISTIAN_PHRASES = [
     "Stand Firm in the Faith"
 ]
 
-# Expanded Christian icons (Top Right)
-CHRISTIAN_ICONS = ["✝", "🕊", "📖", "🙏", "⛪", "🕯", "🎵", "🌿", "☀️", "🏆",
-                   "🎶", "🔥", "💖", "🌎", "⚓", "🌈", "🤍", "👑", "✨", "🛡"]
+CHRISTIAN_ICONS = [
+    "✝", "🕊", "📖", "🙏", "⛪", "🕯", "🎵", "🌿", "☀️", "🏆",
+    "🎶", "🔥", "💖", "🌎", "⚓", "🌈", "🤍", "👑", "✨", "🛡"
+]
 
+# -----------------------------
+# Helper Functions
+# -----------------------------
 def wrap_text(text, font, max_width):
     """Wrap text so that each line fits within max_width."""
     words = text.split()
@@ -80,8 +91,10 @@ def wrap_text(text, font, max_width):
         lines.append(current_line)
     return lines
 
+# -----------------------------
+# Main Bible Clock Loop Function
+# -----------------------------
 def bible_clock_loop():
-    """Loop continuously: update display with Bible verse, Christian phrase, and icon."""
     last_time_key = None
 
     while True:
@@ -96,7 +109,7 @@ def bible_clock_loop():
             print("Error loading bible_verse.json:", e)
             verses = {}
 
-        # Retrieve verse info
+        # Get verse info by current time key
         verse_info = verses.get(time_key, "No verse set for this time.")
         if "–" in verse_info:
             reference, verse_text = map(str.strip, verse_info.split("–", 1))
@@ -104,45 +117,47 @@ def bible_clock_loop():
             reference = verse_info
             verse_text = ""
 
-        # Only update the display if the time has changed
+        # Only update if the time (minute) has changed
         if time_key != last_time_key:
-            print(f"🕒 Updating display for {time_key}...")
+            print(f"Updating display for {time_key}...")
 
-            # Select a random Christian phrase and icon
+            # Select a random phrase and a random icon
             christian_phrase = random.choice(CHRISTIAN_PHRASES)
             christian_icon = random.choice(CHRISTIAN_ICONS)
 
-            # Create a new blank canvas
+            # Create new blank canvas
             img = Image.new("P", (inky_display.WIDTH, inky_display.HEIGHT))
             draw = ImageDraw.Draw(img)
 
-            # Clear the canvas
+            # Clear background to white
             draw.rectangle((0, 0, inky_display.WIDTH, inky_display.HEIGHT), fill=inky_display.WHITE)
 
-            # 🔹 Top Left: Christian Phrase
+            # ------------- Top Section -------------
+            # Top Left: Display rotating Christian phrase
             draw.text((10, 10), christian_phrase, font=phrase_font, fill=inky_display.BLACK)
 
-            # 🔹 Top Right: Christian Icon
+            # Top Right: Display rotating Christian icon
             icon_bbox = draw.textbbox((0, 0), christian_icon, font=icon_font)
-            icon_size = (icon_bbox[2] - icon_bbox[0], icon_bbox[3] - icon_bbox[1])
-            draw.text((inky_display.WIDTH - icon_size[0] - 10, 10),
+            icon_width = icon_bbox[2] - icon_bbox[0]
+            draw.text((inky_display.WIDTH - icon_width - 10, 10),
                       christian_icon, font=icon_font, fill=inky_display.BLACK)
 
-            # Draw a horizontal line below the top section
+            # Draw horizontal separator line
             draw.line([(0, 40), (inky_display.WIDTH, 40)], fill=inky_display.BLACK, width=2)
 
-            # Center: Bible verse reference (drawn in red)
+            # ------------- Center Section -------------
+            # Center: Bible verse reference (red)
             ref_bbox = draw.textbbox((0, 0), reference, font=bold_font)
-            ref_size = (ref_bbox[2] - ref_bbox[0], ref_bbox[3] - ref_bbox[1])
-            ref_x = (inky_display.WIDTH - ref_size[0]) // 2
-            ref_y = 60
+            ref_width = ref_bbox[2] - ref_bbox[0]
+            ref_x = (inky_display.WIDTH - ref_width) // 2
+            ref_y = 60  # Position below the line
             draw.text((ref_x, ref_y), reference, font=bold_font, fill=inky_display.RED)
 
-            # Bible verse text (wrapped)
+            # Bible verse text (wrapped) in black
             verse_max_width = inky_display.WIDTH - 40
             lines = wrap_text(verse_text, verse_font, verse_max_width)
             line_height = verse_font.getbbox("Ay")[3]
-            verse_start_y = ref_y + ref_size[1] + 10
+            verse_start_y = ref_y + bold_font.getbbox("Ay")[3] + 10
             for i, line in enumerate(lines):
                 line_bbox = draw.textbbox((0, 0), line, font=verse_font)
                 line_width = line_bbox[2] - line_bbox[0]
@@ -150,22 +165,23 @@ def bible_clock_loop():
                 draw.text((line_x, verse_start_y + i * (line_height + 4)),
                           line, font=verse_font, fill=inky_display.BLACK)
 
-            # Bottom: Three cross symbols
+            # ------------- Bottom Section -------------
+            # Bottom: Draw three cross symbols using a reliable icon font
             cross_text = "✝   ✝   ✝"
             cross_bbox = draw.textbbox((0, 0), cross_text, font=cross_font)
-            cross_size = (cross_bbox[2] - cross_bbox[0], cross_bbox[3] - cross_bbox[1])
-            cross_x = (inky_display.WIDTH - cross_size[0]) // 2
-            cross_y = inky_display.HEIGHT - cross_size[1] - 10
+            cross_width = cross_bbox[2] - cross_bbox[0]
+            cross_x = (inky_display.WIDTH - cross_width) // 2
+            cross_y = inky_display.HEIGHT - (cross_bbox[3] - cross_bbox[1]) - 20  # 20 px margin from bottom
             draw.text((cross_x, cross_y), cross_text, font=cross_font, fill=inky_display.BLACK)
 
-            # Display the image
+            # Display the new image (full update)
             inky_display.set_image(img)
             inky_display.show()
 
-            # Store the last displayed time to avoid unnecessary updates
+            # Save the last displayed time key
             last_time_key = time_key
 
-        # Refresh every 15 seconds
+        # Refresh loop every 15 seconds
         time.sleep(15)
 
 if __name__ == '__main__':
