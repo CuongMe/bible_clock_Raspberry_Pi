@@ -122,3 +122,6 @@ def bible_clock_loop():
 
         cycle += 1
         time.sleep(60)
+
+if __name__ == '__main__':
+ bible_clock_loop()
