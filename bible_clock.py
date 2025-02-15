@@ -12,6 +12,7 @@ FONT_DIR = os.path.join(os.path.dirname(__file__), "fonts")
 # Load EB Garamond fonts
 REGULAR_FONT_PATH = os.path.join(FONT_DIR, "EBGaramond-Regular.ttf")
 BOLD_FONT_PATH = os.path.join(FONT_DIR, "EBGaramond-Bold.ttf")
+CROSS_FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
 # Setup for the Inky display (change driver if needed)
 inky_display = auto()
@@ -21,7 +22,7 @@ time_font   = ImageFont.truetype(REGULAR_FONT_PATH, 24)
 header_font = ImageFont.truetype(REGULAR_FONT_PATH, 18)
 verse_font  = ImageFont.truetype(REGULAR_FONT_PATH, 24)  # Bible verses
 bold_font   = ImageFont.truetype(BOLD_FONT_PATH, 36)       # Reference (will be red)
-cross_font  = ImageFont.truetype(BOLD_FONT_PATH, 36)
+cross_font = ImageFont.truetype(CROSS_FONT_PATH, 36)
 
 def wrap_text(text, font, max_width):
     """Wrap text so that each line fits within max_width."""
